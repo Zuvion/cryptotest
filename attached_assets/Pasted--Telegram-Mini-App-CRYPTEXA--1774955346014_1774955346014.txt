@@ -1,0 +1,105 @@
+Сейчас ты разрабатываешь только основное Telegram Mini App — криптовалютную биржу CRYPTEXA (бинарные опционы).
+Главное требование на будущее:
+Весь код и архитектура должны быть сразу подготовлены так, чтобы я мог в любой момент создать полностью отдельную админ-панель (второй GitHub-репозиторий, отдельный сервис на Railway.app).
+Админ-панель не будет иметь прямого доступа к базе данных. Она будет работать только через твой REST API.
+Все административные функции будут исключительно в админ-панели.
+Основное приложение должно спокойно реагировать на любые изменения, сделанные через админ-панель, без перезапуска и без конфликтов.
+Оба проекта будут:
+
+Находиться в отдельных GitHub-репозиториях
+Деплоиться отдельно на Railway.app
+Подключаться к одной общей PostgreSQL базе через переменную DATABASE_URL
+
+1. Архитектура (обязательно соблюдать)
+
+Backend: REST API (рекомендуется Next.js 15 App Router или Express + TypeScript)
+База данных: PostgreSQL + Prisma ORM (или Drizzle ORM)
+Все данные хранятся только в общей БД
+Создай отдельную группу защищённых эндпоинтов: /api/admin/*
+Защита админ-API:
+Обязательная проверка ADMIN_API_KEY (секретная переменная окружения)
+Дополнительная проверка Telegram initData + ADMIN_ID
+
+Все ответы API должны быть в едином формате:
+{ success: boolean, data?: any, error?: string, message?: string }
+
+Переменные окружения (Railway):
+
+DATABASE_URL
+ADMIN_API_KEY — секретный ключ для админ-панели
+ADMIN_ID — твой Telegram ID
+BOT_TOKEN — токен бота для отправки уведомлений
+JWT_SECRET — если используешь JWT
+
+2. Схема базы данных (расширить существующую)
+Таблица users (добавить новые поля):
+
+id, telegram_id, username, profile_id, language, balance_usdt, virtual_balance, wallets (JSON), addresses (JSON), is_verified, is_premium, is_blocked, block_reason, referral_code, referred_by, referral_earnings, referral_count, lucky_mode, lucky_until, lucky_max_wins, lucky_wins_used, custom_win_rate (decimal/null, по умолчанию null), last_online_at, created_at
+
+Остальные таблицы остаются как есть:
+
+transactions, trades, withdrawals, admin_messages, admin_logs, checks
+
+Новая таблица (создать обязательно):
+
+admin_chat — id, user_id, message_text, is_from_admin (boolean), created_at, read (boolean)
+
+3. Бизнес-логика (должна полностью поддерживаться)
+
+Два баланса: balance_usdt (реальные деньги) + virtual_balance (выигрыши). Пользователь видит сумму обоих.
+При выводе сначала списывается virtual_balance, потом balance_usdt.
+Торговля: результат предопределён (predetermined_result). По умолчанию 73% WIN / 27% LOSS. Выигрыш идёт на virtual_balance.
+Lucky Mode, реферальная система (5%), комиссии (депозит 0%, вывод 0%, обмен 2%, торговля 2%) — всё как обычно.
+При любом изменении баланса через админку → создавать запись в transactions с type = 'admin_adjust'
+Все действия администратора логировать в admin_logs
+
+4. API эндпоинты для админ-панели (/api/admin/*)
+Dashboard
+
+GET /api/admin/stats — общая статистика + количество онлайн пользователей
+
+Пользователи
+
+GET /api/admin/users — список с поиском и фильтрами
+GET /api/admin/users/:id — полный профиль пользователя (telegram_id, username, ссылка на TG профиль)
+POST /api/admin/users/:id/balance — изменить balance_usdt и/или virtual_balance
+POST /api/admin/users/:id/status — изменить verified, premium, blocked + reason
+POST /api/admin/users/:id/lucky — управление Lucky Mode
+POST /api/admin/users/:id/winrate — установить custom_win_rate (индивидуальный шанс выигрыша)
+
+Lucky Mode, Выводы, Рассылка, Чеки, Логи — полный набор эндпоинтов (approve/reject вывода, broadcast, создание чеков и т.д.)
+5. Дополнительные 5 требований (обязательно)
+
+Онлайн-пользователи
+GET /api/admin/online-count
+Обновлять last_online_at при каждом действии пользователя в Mini App
+
+Индивидуальные шансы выигрыша
+Поле custom_win_rate в users
+При создании trade использовать custom_win_rate пользователя, если он задан, иначе глобальный 73/27
+
+Просмотр профиля
+Возвращать telegram_id, username и ссылку на Telegram-профиль пользователя
+
+Встроенный чат
+Пользователь пишет в Mini App → сохраняется в admin_chat
+Админ отвечает → сообщение уходит пользователю через sendMessage Bot API
+Эндпоинты: GET /api/admin/chat/:userId, POST /api/admin/chat/:userId/send
+
+Манипуляция графиком (скрытый оверрайд)
+Администратор может временно завысить шанс выигрыша в пользу любого игрока
+После закрытия ставки график незаметно возвращается к реальному состоянию
+Реализовать через predetermined_result + временный override (флаг или отдельная логика)
+Эндпоинт: POST /api/admin/trades/:tradeId/override-result
+
+
+6. Технические требования
+
+Все изменения через /api/admin/* должны быть атомарными (используй DB transactions)
+После изменений данные должны сразу обновляться (без кэширования в основном приложении)
+Mini App должен мгновенно реагировать на изменения баланса, Lucky Mode, custom_win_rate и т.д.
+Код должен быть чистым, типизированным (TypeScript), с комментариями
+Добавь логирование важных действий
+
+7. Цель проекта
+Подготовить основное приложение так, чтобы после его завершения я мог создать отдельный репозиторий админ-панели (на Next.js/React), подключить его к той же БД и сразу полноценно управлять всем приложением CRYPTEXA через твои /api/admin/* эндпоинты без каких-либо доработок основного кода.

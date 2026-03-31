@@ -1,0 +1,84 @@
+<!doctype html><html lang="ru"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"/>
+<title>CRYPTEXA</title>
+<link rel="icon" type="image/png" href="/static/img/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css?v={{ cache_bust }}"/>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <div id="splashScreen" class="splash-screen">
+    <canvas id="splashCanvas" class="splash-canvas"></canvas>
+    
+    <div class="splash-content">
+      <div class="cryptexa-logo-wrapper">
+        <div class="logo-glow"></div>
+        <div class="cryptexa-logo">
+          <img src="/static/img/logo.png" alt="CRYPTEXA" width="90" height="90" style="border-radius:18px">
+        </div>
+      </div>
+      <h1 class="splash-title">CRYPTEXA</h1>
+      <p class="splash-subtitle">EXCHANGE</p>
+      
+      <div class="splash-progress">
+        <div class="splash-progress-bar"></div>
+      </div>
+      
+      <p class="splash-status" id="splashStatus">Connecting to market...</p>
+      
+      <div class="splash-error" id="splashError" style="display:none">
+        <p class="splash-error-text">No connection</p>
+        <button class="splash-retry-btn" onclick="location.reload()">Retry</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="header">
+    <div class="brand">
+      <div class="cryptexa-header-logo">
+        <img src="/static/img/logo.png" alt="CRYPTEXA" width="32" height="32" style="border-radius:6px">
+      </div>
+    </div>
+    <div class="header-title cryptexa-brand">CRYPTEXA</div>
+    <div class="actions">
+      <button class="icon-btn" id="btnLang" title="Language">🌐</button>
+      <button class="icon-btn" id="btnNotifications" title="Notifications" style="position:relative">
+        🔔
+        <span id="notificationBadge" style="display:none;position:absolute;top:-2px;right:-2px;background:#FF5252;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span>
+      </button>
+    </div>
+  </div>
+  <div id="root"></div>
+  <div class="navbar">
+    <div class="navbar-bg"></div>
+    <div class="nav-item active assets" data-tab="assets" data-i18n="nav.assets">
+      <span class="nav-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="3"/><path d="M2 9h20"/><path d="M16 15h2"/><path d="M12 15h2"/></svg></span>
+      <span class="nav-label">Активы</span>
+      <div class="nav-indicator"></div>
+    </div>
+    <div class="nav-item trade" data-tab="trade" data-i18n="nav.trade">
+      <span class="nav-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-5 4 3 5-7"/></svg></span>
+      <span class="nav-label">Торговля</span>
+      <div class="nav-indicator"></div>
+    </div>
+    <div class="nav-item referrals" data-tab="referrals" data-i18n="nav.referrals">
+      <span class="nav-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      <span class="nav-label">Рефералы</span>
+      <div class="nav-indicator"></div>
+    </div>
+    <div class="nav-item" data-tab="profile" id="navProfile" style="display:none">
+      <span class="nav-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+      <span class="nav-label" id="navProfileLabel">Профиль</span>
+      <div class="nav-indicator"></div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <div class="pull-indicator" id="pullIndicator">
+    <span class="pull-arrow">↻</span>
+    <span class="pull-text" id="pullText">Потяните для обновления</span>
+  </div>
+  <script src="/static/js/app.js?t={{ cache_bust }}"></script>
+</body></html>
