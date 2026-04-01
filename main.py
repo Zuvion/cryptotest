@@ -27,11 +27,16 @@ if not ADMIN_ID:
     raise ValueError("ADMIN_ID environment variable is required")
 # Auto-detect HOST_BASE for different environments
 _replit_domain = os.getenv("REPLIT_DEV_DOMAIN")
+_railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN")
 if _replit_domain:
     HOST_BASE = f"https://{_replit_domain}"
+elif _railway_domain:
+    HOST_BASE = f"https://{_railway_domain}"
 else:
     HOST_BASE = os.getenv("HOST_BASE", "https://rengle.site")
 MIN_DEPOSIT_USDT = float(os.getenv("MIN_DEPOSIT_USDT", "50"))
+print(f"[CRYPTEXA] HOST_BASE: {HOST_BASE}")
+print(f"[CRYPTEXA] RAILWAY_ENV: {os.getenv('RAILWAY_ENVIRONMENT', 'not set')}")
 import ssl
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from fastapi.middleware.cors import CORSMiddleware
@@ -490,6 +495,8 @@ templates=Jinja2Templates(directory="templates")
 _cors_origins = ["https://web.telegram.org", "https://t.me"]
 if _replit_domain:
     _cors_origins.append(f"https://{_replit_domain}")
+if _railway_domain:
+    _cors_origins.append(f"https://{_railway_domain}")
 _admin_panel_url = os.getenv("ADMIN_PANEL_URL", "")
 if _admin_panel_url:
     _cors_origins.append(_admin_panel_url.rstrip("/"))
@@ -508,6 +515,8 @@ _IS_PRODUCTION = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RENDER") or
 @app.middleware("http")
 async def telegram_auth_middleware(request: Request, call_next):
     path = request.url.path
+    if request.method == "OPTIONS":
+        return await call_next(request)
     if path in _SKIP_AUTH_PATHS or path.startswith(_SKIP_AUTH_PREFIXES):
         return await call_next(request)
     if path.startswith("/api/admin/"):
@@ -945,27 +954,6 @@ async def api_rates():
     """Get current exchange rates for RUB, BYN, UAH to USD"""
     return await get_exchange_rates()
 
-class SetCurrencyPayload(BaseModel):
-    currency: str
-
-@app.post("/api/user/currency")
-async def api_set_currency(p: SetCurrencyPayload, db: AsyncSession=Depends(get_db), request: Request=None):
-    """Set user's preferred fiat currency"""
-    tid = getattr(request.state, 'telegram_id', None)
-    if not tid:
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    u = (await db.execute(select(User).where(User.telegram_id == str(tid)))).scalars().first()
-    if not u:
-        return JSONResponse({"ok": False, "error": "User not found"})
-    
-    valid_currencies = ["RUB", "BYN", "UAH"]
-    currency = p.currency.upper()
-    if currency not in valid_currencies:
-        return JSONResponse({"ok": False, "error": f"Invalid currency. Use: {', '.join(valid_currencies)}"})
-    
-    u.preferred_fiat = currency
-    await db.commit()
-    return {"ok": True, "currency": currency}
 
 @app.get("/api/tickers")
 async def api_tickers():
@@ -2596,7 +2584,6 @@ async def require_admin(request: Request, db: AsyncSession = Depends(get_db)):
 class AdminBalancePayload(BaseModel):
     action: str
     amount: float
-    type: str = "real"
 
 class AdminStatusPayload(BaseModel):
     action: str
@@ -2740,7 +2727,7 @@ async def api_admin_user_balance(profile_id: int, payload: AdminBalancePayload, 
         elif payload.action == "subtract": user.balance_usdt = old_val - payload.amount
         elif payload.action == "set": user.balance_usdt = payload.amount
         new_val = user.balance_usdt
-        db.add(Transaction(user_id=user.id, type="admin_adjust", amount=round(new_val - old_val, 6), currency="USDT", status="done", details={"by": "admin", "action": payload.action, "balance_type": "real"}))
+        db.add(Transaction(user_id=user.id, type="admin_adjust", amount=round(new_val - old_val, 6), currency="USDT", status="done", details={"by": "admin", "action": payload.action}))
         await db.commit()
         await log_admin_action(db, admin_tid, f"balance_{payload.action}", user.id, f"{old_val:.2f}", f"{new_val:.2f}")
         try: await bot_send_message(int(user.telegram_id), f"💰 <b>Баланс обновлён!</b>\n\n💵 Баланс: {new_val:.2f} USDT", parse_mode="HTML")
@@ -4147,4 +4134,5 @@ BTC, ETH, TON, SOL, BNB, XRP, DOGE, LTC, TRX, USDT
 app.include_router(router)
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    port = int(os.getenv("PORT", "5000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)
